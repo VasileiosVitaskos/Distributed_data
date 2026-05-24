@@ -1,0 +1,37 @@
+name: Execute PySpark Joins
+
+# Πότε θα τρέχει αυτόματα;
+on:
+  push:
+    branches: [ main, master ]
+  # Το workflow_dispatch προσθέτει ένα κουμπί "Run workflow" στο GitHub UI 
+  # για να μπορεί ο καθηγητής να το τρέξει χειροκίνητα όποτε θέλει!
+  workflow_dispatch:
+
+jobs:
+  run-spark-algorithms:
+    # Θα τρέξει στους δωρεάν Linux servers του GitHub
+    runs-on: ubuntu-latest
+
+    steps:
+    - name:  Checkout Repository
+      uses: actions/checkout@v3
+
+    - name:  Build Docker Image
+      run: |
+        echo "Building the Spark environment..."
+        docker build -t pyspark-assignment .
+
+    - name:  Εκτέλεση Σκέλους Α (All-Pairs Matching)
+      run: |
+        echo "------------------------------------------------"
+        echo "Ξεκινάει το Part A..."
+        docker run --rm pyspark-assignment python A_part.py
+        echo "Ολοκληρώθηκε το Part A!"
+
+    - name:  Εκτέλεση Σκέλους Β (3-Way Join)
+      run: |
+        echo "------------------------------------------------"
+        echo "Ξεκινάει το Part B..."
+        docker run --rm pyspark-assignment python B_part.py
+        echo "Ολοκληρώθηκε το Part B!"
