@@ -1,0 +1,46 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>PySpark Triadic Join Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background-color: #f4f4f9; }
+        h2 { color: #333; }
+        table { border-collapse: collapse; width: 100%; max-width: 800px; background: #fff; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #28a745; color: white; }
+        tr:hover { background-color: #f1f1f1; }
+        .metrics { margin-bottom: 20px; font-weight: bold; color: #555; }
+    </style>
+</head>
+<body>
+    <h2>PySpark Triadic Join $A(x,y) \bowtie B(y,z) \bowtie C(z,w)$</h2>
+    <div class="metrics">
+        Dataset Size (N) per table: 100,000 <br>
+        Target Reducers (r): 32
+    </div>
+    <table>
+        <tr>
+            <th>Approach</th>
+            <th>Output Rows</th>
+            <th>Execution Time (s)</th>
+        </tr>
+        <tr>
+            <td>1-Step Multi-Way (Shares Algorithm)</td>
+            <td>100,274</td>
+            <td>1.26</td>
+        </tr>
+        <tr>
+            <td>2-Step Sequential Joins</td>
+            <td>100,274</td>
+            <td>0.32</td>
+        </tr>
+        <tr>
+            <td>SQL Query (Catalyst)</td>
+            <td>100,274</td>
+            <td>0.28</td>
+        </tr>
+    </table>
+</body>
+</html>

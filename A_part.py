@@ -28,7 +28,7 @@ NUM_REDUCERS = spark.sparkContext.defaultParallelism
 #Σε ένα πραγματικό Production Cluster, όμως, ο χρυσός κανόνας δεν είναι 1 προς 1. Ο χρυσός κανόνας είναι 2x ή 3x των cores γιατί; Γιατί θέλουμε να έχουμε αρκετά partitions για να εκμεταλλευτούμε την παράλληλη επεξεργασία, αλλά όχι τόσα πολλά που να δημιουργούν υπερβολικό overhead. Σε ένα μικρό dataset, το 1 προς 1 μπορεί να είναι ιδανικό, αλλά σε μεγαλύτερα datasets, μπορεί να θέλουμε λίγο περισσότερα partitions για να διασφαλίσουμε ότι όλοι οι πυρήνες είναι απασχολημένοι.
 spark.conf.set("spark.sql.shuffle.partitions", str(NUM_REDUCERS))
 #Εδώ commented out το AQE γιατί σε ένα μικρό dataset όπως το δικό μας, μπορεί να μην κάνει μεγάλη διαφορά και μπορεί να προσθέσει λίγο overhead. Σε ένα πραγματικό cluster με μεγαλύτερα δεδομένα, όμως, το AQE μπορεί να είναι πολύ χρήσιμο για να βελτιστοποιήσει τα σχέδια εκτέλεσης δυναμικά, ειδικά αν δεν είμαστε σίγουροι για τον καλύτερο αριθμό partitions εκ των προτέρων.
-'''
+
 # Ο αριθμός των διαθέσιμων πυρήνων (cores) στο σύστημα (Driver/Cluster)
 CORES = spark.sparkContext.defaultParallelism
 
@@ -38,19 +38,13 @@ NUM_REDUCERS = CORES * 2
 
 # Ρυθμίζουμε τα partitions του shuffle για να αποφύγουμε το default 200.
 spark.conf.set("spark.sql.shuffle.partitions", str(NUM_REDUCERS))
-
-# Προαιρετικό "Cheat Code" (Για Spark 3.x): 
-# Ενεργοποιούμε το Adaptive Query Execution (AQE).
-# Αν εμείς κάνουμε λάθος στα partitions, το Spark τα ενώνει ή τα σπάει δυναμικά την ώρα που τρέχει!
+# Το AQE (Adaptive Query Execution) είναι μια προηγμένη λειτουργία του Spark που επιτρέπει στο Catalyst Optimizer να προσαρμόζει δυναμικά τα σχέδια εκτέλεσης κατά τη διάρκεια της εκτέλεσης, βάσει των πραγματικών στατιστικών στοιχείων που συλλέγονται. Αυτό μπορεί να οδηγήσει σε σημαντικές βελτιώσεις απόδοσης, ειδικά σε περιπτώσεις όπου οι εκτιμήσεις του optimizer δεν είναι ακριβείς ή όταν τα δεδομένα έχουν απρόβλεπτη κατανομή. Με το AQE ενεργοποιημένο, το Spark μπορεί να αποφασίσει να αλλάξει τον αριθμό των partitions, να επιλέξει διαφορετικούς αλγορίθμους join, ή να κάνει άλλες βελτιστοποιήσεις on-the-fly, ανάλογα με τις συνθήκες εκτέλεσης.
+# Ενεργοποιούμε το Adaptive Query Execution.
+# Αν εμείς κάνουμε λάθος στα partitions, το Spark τα ενώνει ή τα σπάει δυναμικά την ώρα που τρέχει.
 spark.conf.set("spark.sql.adaptive.enabled", "true")
-'''
-#Εδώ λιγα λόγια για το dataset που θα χρησιμοποιήσουμε. Δημιουργούμε ένα τεράστιο dataset με 500.000 εγγραφές, όπου κάθε εγγραφή αντιπροσωπεύει μια ασθένεια και τον αριθμό των ασθενών που την έχουν. Οι ασθένειες επιλέγονται τυχαία από μια λίστα, και ο αριθμός των ασθενών είναι επίσης τυχαίος μεταξύ 10 και 5000. Αυτό μας δίνει ένα αρκετά μεγάλο dataset για να δοκιμάσουμε τις διαφορετικές προσεγγίσεις μας στο all-pairs matching.
-disease_names = [
-    "Covid-19", "Pneumonia",
-    "Lung carcinoma", "Multiple sclerosis", "cystic fibrosis"
-]
 
-N = 10000
+
+'''N = 10000
 random.seed(42)
 #Εδω δημιουργούμε τα δεδομένα αλλά είναι λάθος γιατί; γιατί τα list comprehensions πανε μονο στον driver και δημιουργούν ένα τεράστιο αντικείμενο στη μνήμη του driver, κάτι που μπορεί να οδηγήσει σε OOM errors. Σε ένα πραγματικό cluster, θα θέλαμε να δημιουργήσουμε τα δεδομένα με έναν πιο κατανεμημένο τρόπο, ίσως χρησιμοποιώντας RDDs ή DataFrames για να παράγουμε τα δεδομένα απευθείας στο cluster, αντί να τα δημιουργούμε όλα στον driver και μετά να τα στέλνουμε στο cluster.
 raw_data = [
@@ -68,20 +62,20 @@ schema = StructType([
 df = spark.createDataFrame(raw_data, schema)
 df.cache() # Κρατάμε το DataFrame στη μνήμη για να αποφύγουμε επαναλαμβανόμενα I/O κατά τις μετρήσεις μας. Αυτό είναι σημαντικό γιατί θα εκτελέσουμε πολλαπλές προσεγγίσεις στο ίδιο dataset, και θέλουμε να μετρήσουμε μόνο τον χρόνο του join, όχι τον χρόνο φόρτωσης των δεδομένων.
 df.count() # Force action to load data in memory instantly αλλιώς θα το έκανε στο πρώτο join, και τότε θα μετρούσαμε και τον χρόνο φόρτωσης μαζί με τον χρόνο του join, κάτι που δεν θέλουμε.
-
 '''
-N = 500000  # Τώρα μπορείς να το κάνεις και 50.000.000 άφοβα!
+#Εδώ λιγα λόγια για το dataset που θα χρησιμοποιήσουμε. Δημιουργούμε ένα τεράστιο dataset με 500.000 εγγραφές, όπου κάθε εγγραφή αντιπροσωπεύει μια ασθένεια και τον αριθμό των ασθενών που την έχουν. Οι ασθένειες επιλέγονται τυχαία από μια λίστα, και ο αριθμός των ασθενών είναι επίσης τυχαίος μεταξύ 10 και 5000. Αυτό μας δίνει ένα αρκετά μεγάλο dataset για να δοκιμάσουμε τις διαφορετικές προσεγγίσεις μας στο all-pairs matching.
+N = 1000000  
 
 disease_names = [
     "Covid-19", "Pneumonia",
     "Lung carcinoma", "Multiple sclerosis", "cystic fibrosis"
 ]
 
-# Βήμα 1: Μετατρέπουμε τη μικρή Python list σε Spark Array Column
+# Μετατρέπουμε τη μικρή Python list σε Spark Array Column
 disease_array_col = F.array(*[F.lit(name) for name in disease_names])
 num_diseases = len(disease_names)
 
-# Βήμα 2: Γεννάμε τα δεδομένα Native (Κατανεμημένα από την αρχή)
+# Γεννάμε τα δεδομένα Native (Κατανεμημένα από την αρχή)
 # Η spark.range(N) δημιουργεί αστραπιαία μια στήλη "id" από το 0 έως το N-1
 df = spark.range(N) \
     .withColumn(
@@ -99,17 +93,17 @@ df = spark.range(N) \
         "patients", 
         F.round(F.rand() * (5000 - 10) + 10).cast("int")
     ) \
-    .select("disease", "patients") # Κρατάμε μόνο τις στήλες που χρειαζόμαστε
+    .select("id", "disease", "patients") # Κρατάμε μόνο τις στήλες που χρειαζόμαστε
 
 # Βήμα 3: Caching & Action
 df.cache()
 print(f"Data generated successfully: {df.count()} rows")
-'''
+
 
 
 def naive_all_pairs_df(df):
     # Απευθείας Theta-Join αντί για crossJoin + filter
-    return df.alias("a").join(df.alias("b"), F.col("a.disease") < F.col("b.disease")) \
+    return df.alias("a").join(df.alias("b"), F.col("a.id") < F.col("b.id")) \
              .selectExpr(
                  "a.disease as disease_A", 
                  "b.disease as disease_B", 
@@ -141,9 +135,7 @@ def group_based_all_pairs_df(df, num_reducers):
                 .withColumn("p_i", F.explode(F.expr("sequence(0, gid)"))) \
                 .alias("b")
 
-    # ---------------------------------------------------------------------
     # SHUFFLE & REDUCE PHASE (Τοπικό Join)
-    # ---------------------------------------------------------------------
     # Αναγκάζουμε το Spark να κάνει shuffle βάσει του κάδου (p_i, p_j)
     left_rep = left.repartition(num_reducers, "p_i", "p_j")
     right_rep = right.repartition(num_reducers, "p_i", "p_j")
@@ -155,7 +147,7 @@ def group_based_all_pairs_df(df, num_reducers):
     # Φιλτράρισμα προστασίας Cross-Groups (όπως πριν)
     valid_pairs = joined.filter(
         (F.col("a.gid") < F.col("b.gid")) | 
-        ((F.col("a.gid") == F.col("b.gid")) & (F.col("a.disease") < F.col("b.disease")))
+        ((F.col("a.gid") == F.col("b.gid")) & (F.col("a.id") < F.col("b.id")))
     )
     
     return valid_pairs.selectExpr(
@@ -164,10 +156,7 @@ def group_based_all_pairs_df(df, num_reducers):
         "abs(a.patients - b.patients) as patients_diff"
     )
 
-# ============================================================
-# 5. SQL APPROACH
-# ============================================================
-
+# SQL APPROACH
 def sql_all_pairs(spark, df):
     df.createOrReplaceTempView("diseases_table")
     return spark.sql("""
@@ -177,13 +166,9 @@ def sql_all_pairs(spark, df):
             ABS(a.patients - b.patients) AS patients_diff
         FROM diseases_table a
         JOIN diseases_table b
-          ON a.disease < b.disease
+          ON a.id < b.id
     """)
 
-
-# ============================================================
-# 6. ΕΚΤΕΛΕΣΗ & ΜΕΤΡΗΣΗ ΧΡΟΝΩΝ
-# ============================================================
 
 print("Εκτέλεση SQL approach...")
 t0 = time.time()
@@ -196,7 +181,7 @@ t0 = time.time()
 naive_result = naive_all_pairs_df(df)
 naive_count  = naive_result.count()
 naive_time   = time.time() - t0
-
+# Σημείωση: Το count() είναι απαραίτητο για να μετρήσουμε τον χρόνο εκτέλεσης του join, καθώς το Spark χρησιμοποιεί lazy evaluation. Χωρίς το count(), το Spark δεν θα εκτελέσει πραγματικά το join και θα μετράμε μόνο τον χρόνο δημιουργίας του DataFrame, όχι τον χρόνο εκτέλεσης του join.
 print("Εκτέλεση Group-based approach...")
 t0 = time.time()
 group_result = group_based_all_pairs_df(df, NUM_REDUCERS)
@@ -206,11 +191,7 @@ group_time   = time.time() - t0
 print("\nSQL Query Plan (Spark Catalyst):")
 sql_result.explain(extended=False)
 
-
-# ============================================================
-# 7. ΑΠΟΤΙΜΗΣΗ — Paper bounds
-# ============================================================
-
+# Υπολογισμός αριθμού reducers και ζευγών για κάθε προσέγγιση
 n = N
 g = compute_num_groups(n, NUM_REDUCERS)
 reducers_naive = n * (n - 1) // 2
@@ -226,3 +207,62 @@ print(f"  {'SQL':<20} {sql_count:>8} {sql_time:>7.2f}s {'auto':>10}")
 print("="*55)
 
 spark.stop()
+
+html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>PySpark Execution Report</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; margin: 40px; background-color: #f4f4f9; }}
+        h2 {{ color: #333; }}
+        table {{ border-collapse: collapse; width: 100%; max-width: 800px; background: #fff; box-shadow: 0 0 10px rgba(0,0,0,0.1); }}
+        th, td {{ padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; }}
+        th {{ background-color: #0056b3; color: white; }}
+        tr:hover {{ background-color: #f1f1f1; }}
+        .metrics {{ margin-bottom: 20px; font-weight: bold; color: #555; }}
+    </style>
+</head>
+<body>
+    <h2>PySpark All-Pairs Matching Results</h2>
+    <div class="metrics">
+        Dataset Size (N): {n:,} <br>
+        Reducers (r): {NUM_REDUCERS} <br>
+        Buckets (g): {g}
+    </div>
+    <table>
+        <tr>
+            <th>Approach</th>
+            <th>Pairs Generated</th>
+            <th>Execution Time (s)</th>
+            <th>Target Reducers</th>
+        </tr>
+        <tr>
+            <td>Naive</td>
+            <td>{naive_count:,}</td>
+            <td>{naive_time:.2f}</td>
+            <td>{reducers_naive:,}</td>
+        </tr>
+        <tr>
+            <td>Group-based</td>
+            <td>{group_count:,}</td>
+            <td>{group_time:.2f}</td>
+            <td>{reducers_group:,}</td>
+        </tr>
+        <tr>
+            <td>SQL (Catalyst)</td>
+            <td>{sql_count:,}</td>
+            <td>{sql_time:.2f}</td>
+            <td>Auto</td>
+        </tr>
+    </table>
+</body>
+</html>
+"""
+
+# Γράφουμε το αρχείο στον φάκελο /out (τον οποίο θα κάνουμε map από το Docker)
+with open("/out/report_A.html", "w", encoding="utf-8") as f:
+    f.write(html_content)
+
+print("\nTo HTML report έχει αποθηκευτεί στο /out/report_A.html")

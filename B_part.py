@@ -136,3 +136,56 @@ time3 = time.time() - t0
 print(f"Αποτέλεσμα: {count3:,} γραμμές | Χρόνος: {time3:.2f} δευτερόλεπτα")
 
 spark.stop()
+
+html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>PySpark Triadic Join Report</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; margin: 40px; background-color: #f4f4f9; }}
+        h2 {{ color: #333; }}
+        table {{ border-collapse: collapse; width: 100%; max-width: 800px; background: #fff; box-shadow: 0 0 10px rgba(0,0,0,0.1); }}
+        th, td {{ padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; }}
+        th {{ background-color: #28a745; color: white; }}
+        tr:hover {{ background-color: #f1f1f1; }}
+        .metrics {{ margin-bottom: 20px; font-weight: bold; color: #555; }}
+    </style>
+</head>
+<body>
+    <h2>PySpark Triadic Join $A(x,y) \\bowtie B(y,z) \\bowtie C(z,w)$</h2>
+    <div class="metrics">
+        Dataset Size (N) per table: {N:,} <br>
+        Target Reducers (r): {NUM_REDUCERS}
+    </div>
+    <table>
+        <tr>
+            <th>Approach</th>
+            <th>Output Rows</th>
+            <th>Execution Time (s)</th>
+        </tr>
+        <tr>
+            <td>1-Step Multi-Way (Shares Algorithm)</td>
+            <td>{count1:,}</td>
+            <td>{time1:.2f}</td>
+        </tr>
+        <tr>
+            <td>2-Step Sequential Joins</td>
+            <td>{count2:,}</td>
+            <td>{time2:.2f}</td>
+        </tr>
+        <tr>
+            <td>SQL Query (Catalyst)</td>
+            <td>{count3:,}</td>
+            <td>{time3:.2f}</td>
+        </tr>
+    </table>
+</body>
+</html>
+"""
+
+with open("/out/report_B.html", "w", encoding="utf-8") as f:
+    f.write(html_content)
+
+print("\nTo HTML report έχει αποθηκευτεί στο /out/report_B.html")

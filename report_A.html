@@ -1,0 +1,51 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>PySpark Execution Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background-color: #f4f4f9; }
+        h2 { color: #333; }
+        table { border-collapse: collapse; width: 100%; max-width: 800px; background: #fff; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #0056b3; color: white; }
+        tr:hover { background-color: #f1f1f1; }
+        .metrics { margin-bottom: 20px; font-weight: bold; color: #555; }
+    </style>
+</head>
+<body>
+    <h2>PySpark All-Pairs Matching Results</h2>
+    <div class="metrics">
+        Dataset Size (N): 1,000,000 <br>
+        Reducers (r): 32 <br>
+        Buckets (g): 176
+    </div>
+    <table>
+        <tr>
+            <th>Approach</th>
+            <th>Pairs Generated</th>
+            <th>Execution Time (s)</th>
+            <th>Target Reducers</th>
+        </tr>
+        <tr>
+            <td>Naive</td>
+            <td>499,999,500,000</td>
+            <td>5583.53</td>
+            <td>499,999,500,000</td>
+        </tr>
+        <tr>
+            <td>Group-based</td>
+            <td>499,999,500,000</td>
+            <td>375.29</td>
+            <td>15,576</td>
+        </tr>
+        <tr>
+            <td>SQL (Catalyst)</td>
+            <td>499,999,500,000</td>
+            <td>5480.00</td>
+            <td>Auto</td>
+        </tr>
+    </table>
+</body>
+</html>
